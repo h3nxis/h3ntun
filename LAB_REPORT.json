@@ -1,0 +1,308 @@
+{
+  "generated_at": 1790163396.1523337,
+  "scope": "loopback-only",
+  "scenarios": [
+    {
+      "profile": "clean",
+      "link_profiles": {
+        "uplink": {
+          "delay_ms": 5,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0
+        },
+        "downlink": {
+          "delay_ms": 10,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0
+        }
+      },
+      "result": {
+        "sent": 100,
+        "received": 100,
+        "loss_percent": 0.0,
+        "latency_ms": {
+          "min": 18.62,
+          "avg": 33.99,
+          "max": 45.1
+        },
+        "uplink": {
+          "received": 100,
+          "forwarded": 100,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 100,
+          "forwarded": 100,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 100,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 8.5
+      }
+    },
+    {
+      "profile": "impaired",
+      "link_profiles": {
+        "uplink": {
+          "delay_ms": 15,
+          "jitter_ms": 5,
+          "drop_every": 10,
+          "duplicate_every": 0,
+          "reorder_every": 7
+        },
+        "downlink": {
+          "delay_ms": 25,
+          "jitter_ms": 10,
+          "drop_every": 20,
+          "duplicate_every": 13,
+          "reorder_every": 9
+        }
+      },
+      "result": {
+        "sent": 200,
+        "received": 171,
+        "loss_percent": 14.5,
+        "latency_ms": {
+          "min": 28.1,
+          "avg": 65.13,
+          "max": 128.48
+        },
+        "uplink": {
+          "received": 200,
+          "forwarded": 180,
+          "dropped": 20,
+          "duplicated": 0,
+          "reordered": 26
+        },
+        "downlink": {
+          "received": 180,
+          "forwarded": 184,
+          "dropped": 9,
+          "duplicated": 13,
+          "reordered": 19
+        },
+        "backend_requests": 180,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 13,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 7.268
+      }
+    },
+    {
+      "profile": "outage",
+      "during_outage": {
+        "sent": 10,
+        "received": 0,
+        "loss_percent": 100.0,
+        "latency_ms": {
+          "min": null,
+          "avg": null,
+          "max": null
+        },
+        "uplink": {
+          "received": 10,
+          "forwarded": 10,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 10,
+          "forwarded": 0,
+          "dropped": 10,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 10,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 0.0
+      },
+      "after_recovery": {
+        "sent": 30,
+        "received": 30,
+        "loss_percent": 0.0,
+        "latency_ms": {
+          "min": 18.4,
+          "avg": 26.29,
+          "max": 41.22
+        },
+        "uplink": {
+          "received": 40,
+          "forwarded": 40,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 40,
+          "forwarded": 30,
+          "dropped": 10,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 40,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 6.375
+      }
+    },
+    {
+      "profile": "stress",
+      "link_profiles": {
+        "uplink": {
+          "delay_ms": 0.0,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0
+        },
+        "downlink": {
+          "delay_ms": 0.0,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0
+        }
+      },
+      "result": {
+        "sent": 1000,
+        "received": 1000,
+        "loss_percent": 0.0,
+        "latency_ms": {
+          "min": 3.37,
+          "avg": 59.16,
+          "max": 108.25
+        },
+        "uplink": {
+          "received": 1000,
+          "forwarded": 1000,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 1000,
+          "forwarded": 1000,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 1000,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 9.875
+      }
+    },
+    {
+      "profile": "boundary",
+      "maximum_payload": {
+        "sent": 5,
+        "received": 5,
+        "loss_percent": 0.0,
+        "latency_ms": {
+          "min": 5.38,
+          "avg": 5.82,
+          "max": 6.07
+        },
+        "uplink": {
+          "received": 5,
+          "forwarded": 5,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 5,
+          "forwarded": 5,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 5,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 1.0
+      },
+      "oversize_payload": {
+        "sent": 1,
+        "received": 0,
+        "loss_percent": 100.0,
+        "latency_ms": {
+          "min": null,
+          "avg": null,
+          "max": null
+        },
+        "uplink": {
+          "received": 5,
+          "forwarded": 5,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 5,
+          "forwarded": 5,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 5,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "framed_byte_ratio": 1.0
+      },
+      "oversize_drops": 1
+    }
+  ]
+}

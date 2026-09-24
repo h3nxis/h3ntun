@@ -1,0 +1,16 @@
+{
+  "role": "iran",
+  "tunnel_id": "replace_tunnel_id",
+  "shared_secret": "replace_shared_secret",
+  "inner_listen": "127.0.0.1:5000",
+  "expected_inner_peer": null,
+  "uplink_bind": "0.0.0.0:0",
+  "foreign_uplink": "foreign_ip:7000",
+  "downlink_listen": "0.0.0.0:7001",
+  "expected_downlink_source": "spoof_ip",
+  "health_listen": "127.0.0.1:9081",
+  "metrics_file": "/var/lib/hy-asym-link/metrics.json",
+  "keepalive_seconds": 5,
+  "health_timeout_seconds": 20,
+  "recv_buffer_bytes": 4194304
+}

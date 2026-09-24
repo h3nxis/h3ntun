@@ -1,0 +1,37 @@
+[Unit]
+Description=Authenticated Asymmetric UDP Link
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hy-asym-link
+Group=hy-asym-link
+WorkingDirectory=/opt/hy-asym-link/app
+Environment=PYTHONPATH=/opt/hy-asym-link/app
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/env python3 -m asym_link run --config /etc/hy-asym-link/config.json
+ExecStartPre=/usr/bin/env python3 -m asym_link check --config /etc/hy-asym-link/config.json
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+UMask=0027
+StateDirectory=hy-asym-link
+StateDirectoryMode=0750
+ReadWritePaths=/var/lib/hy-asym-link
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+# Source-bound reachability candidates
+#
+# Put only IPv4 addresses that are assigned to the sender and that you are
+# authorized to test. Non-local addresses are rejected by the kernel bind.
+# The following entries are loopback-only examples for an isolated local lab.
+
+127.0.0.1
+127.0.0.2
