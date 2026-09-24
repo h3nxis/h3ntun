@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from asym_link.health import is_healthy
+from h3ntun.health import is_healthy
 
 
 class HealthTests(unittest.TestCase):

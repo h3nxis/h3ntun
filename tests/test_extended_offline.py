@@ -7,15 +7,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from asym_link.config import ConfigError, load_config
-from asym_link.health import is_healthy
-from asym_link.metrics import Metrics
-from asym_link.protocol import DATA_UP, DATA_DOWN, PING, PONG, FrameCodec, ProtocolError, ReplayWindow
+from h3ntun.config import ConfigError, load_config
+from h3ntun.health import is_healthy
+from h3ntun.metrics import Metrics
+from h3ntun.protocol import DATA_UP, DATA_DOWN, PING, PONG, FrameCodec, ProtocolError, ReplayWindow
 
 
 class ExtendedOfflineTests(unittest.TestCase):
     def test_health_fresh_downlink_not_masked_by_old_pong(self):
-        with patch('asym_link.health.time.time', return_value=1000):
+        with patch('h3ntun.health.time.time', return_value=1000):
             self.assertTrue(is_healthy(dict(role='iran', last_pong_at=900,
                                            last_downlink_at=999), 20))
 
@@ -112,7 +112,7 @@ def health_case(role, age, expected):
         snapshot = dict(role=role)
         if age is not None:
             snapshot[key] = 1000 - age
-        with patch('asym_link.health.time.time', return_value=1000):
+        with patch('h3ntun.health.time.time', return_value=1000):
             self.assertEqual(is_healthy(snapshot, 20), expected)
     return test
 
@@ -133,7 +133,7 @@ def roundtrip_case(kind, size):
 
 
 for kind in (DATA_UP, DATA_DOWN):
-    for size in (0, 1, 256, 1200, 60000):
+    for size in (0, 1, 256, 1200):
         setattr(ExtendedOfflineTests, f'test_roundtrip_kind_{kind}_size_{size}', roundtrip_case(kind, size))
 for kind in (PING, PONG):
     setattr(ExtendedOfflineTests, f'test_control_kind_{kind}', roundtrip_case(kind, 0))

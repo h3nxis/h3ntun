@@ -3,15 +3,32 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hy-asymmetric-link-research"
-version = "0.3.0"
-description = "Authorized research prototype for an asymmetric UDP transport"
+name = "h3ntun"
+version = "0.4.0"
+description = "Encrypted and reliable asymmetric UDP tunnel"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+license = "MIT"
+dependencies = ["cryptography>=42"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: System :: Networking",
+]
 
 [project.scripts]
-hy-asym-link = "asym_link.cli:main"
+h3ntun = "h3ntun.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["asym_link*"]
+include = ["h3ntun*"]
+
+[project.urls]
+Repository = "https://github.com/h3nxis/h3ntun"
+Issues = "https://github.com/h3nxis/h3ntun/issues"

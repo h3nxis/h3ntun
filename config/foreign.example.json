@@ -10,8 +10,16 @@
   "downlink_source": "source_ip_assigned_to_server",
   "downlink_source_port": 7002,
   "health_listen": "127.0.0.1:9082",
-  "metrics_file": "/var/lib/hy-asym-link/metrics.json",
+  "metrics_file": "/var/lib/h3ntun/metrics.json",
+  "replay_state_file": "/var/lib/h3ntun/foreign-replay.json",
   "keepalive_seconds": 5,
   "health_timeout_seconds": 20,
-  "recv_buffer_bytes": 4194304
+  "recv_buffer_bytes": 4194304,
+  "fragment_payload_bytes": 1200,
+  "fec_enabled": true,
+  "reliable": true,
+  "retransmit_timeout_seconds": 0.5,
+  "max_retries": 8,
+  "max_pending_messages": 2048,
+  "reassembly_timeout_seconds": 30
 }

@@ -7,8 +7,8 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from asym_link.agent import IranAgent, ForeignAgent
-from asym_link.config import IranConfig, ForeignConfig
+from h3ntun.agent import IranAgent, ForeignAgent
+from h3ntun.config import IranConfig, ForeignConfig
 from tests.test_integration import UdpEcho
 
 
@@ -36,7 +36,7 @@ class ExtendedLifecycleTests(unittest.TestCase):
             inner_listen=('127.0.0.1', 0), uplink_bind=('127.0.0.1', 0),
             foreign_uplink=self.foreign.uplink_sock.getsockname(),
             downlink_listen=('127.0.0.1', 0), expected_downlink_source='127.0.0.1')
-        with patch('asym_link.agent.secrets.randbits', return_value=1_000_000):
+        with patch('h3ntun.agent.secrets.randbits', return_value=1_000_000):
             self.iran = IranAgent(self.iran_config)
         self.agents.append(self.iran)
         self.foreign.config = replace(self.foreign.config,
@@ -66,7 +66,7 @@ class ExtendedLifecycleTests(unittest.TestCase):
         inner = self.iran.inner_sock.getsockname()
         self.iran.stop()
         self.agents.remove(self.iran)
-        with patch('asym_link.agent.secrets.randbits', return_value=sequence):
+        with patch('h3ntun.agent.secrets.randbits', return_value=sequence):
             self.iran = IranAgent(replace(self.iran_config,
                                          downlink_listen=downlink, inner_listen=inner))
         self.agents.append(self.iran)

@@ -9,7 +9,7 @@ import time
 import unittest
 from pathlib import Path
 
-from scripts.spoof_scanner import (
+from scripts.source_scanner import (
     ProbeError,
     decode_probe,
     encode_probe,

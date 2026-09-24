@@ -5,13 +5,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=hy-asym-link
-Group=hy-asym-link
-WorkingDirectory=/opt/hy-asym-link/app
-Environment=PYTHONPATH=/opt/hy-asym-link/app
+User=h3ntun
+Group=h3ntun
+WorkingDirectory=/opt/h3ntun/app
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/usr/bin/env python3 -m asym_link run --config /etc/hy-asym-link/config.json
-ExecStartPre=/usr/bin/env python3 -m asym_link check --config /etc/hy-asym-link/config.json
+ExecStart=/opt/h3ntun/venv/bin/h3ntun run --config /etc/h3ntun/config.json
+ExecStartPre=/opt/h3ntun/venv/bin/h3ntun check --config /etc/h3ntun/config.json
 Restart=on-failure
 RestartSec=2
 TimeoutStopSec=10
@@ -26,9 +25,9 @@ ProtectControlGroups=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
 UMask=0027
-StateDirectory=hy-asym-link
+StateDirectory=h3ntun
 StateDirectoryMode=0750
-ReadWritePaths=/var/lib/hy-asym-link
+ReadWritePaths=/var/lib/h3ntun
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Authenticated source-bound reachability scanner.
 
-Despite the legacy filename, this tool does not open raw sockets and cannot
-forge a non-local source address. Every candidate must be bindable by the
-kernel on the sender. It is intended for owned/authorized addresses and local
-lab simulations.
+This tool does not open raw sockets and cannot forge a non-local source
+address. Every candidate must be bindable by the kernel on the sender. It is
+intended for owned/authorized addresses and local lab simulations.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from asym_link.config import ForeignConfig, IranConfig, load_config
+from h3ntun.config import ForeignConfig, IranConfig, load_config
 
 
 PROBE_MAGIC = b"HYPROBE1"

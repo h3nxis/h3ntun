@@ -34,6 +34,26 @@ class Metrics:
             "source_mismatch_drops": 0,
             "inner_source_mismatch_drops": 0,
             "oversize_drops": 0,
+            "encrypted_frames_tx": 0,
+            "encrypted_frames_rx": 0,
+            "fragment_messages": 0,
+            "fragments_created": 0,
+            "fragments_received": 0,
+            "fec_recoveries": 0,
+            "acks_tx": 0,
+            "acks_rx": 0,
+            "acked_messages": 0,
+            "retransmitted_frames": 0,
+            "retry_exhausted": 0,
+            "queue_drops": 0,
+            "reassembly_timeouts": 0,
+            "duplicate_messages": 0,
+            "stale_ack_drops": 0,
+            "unknown_ack_drops": 0,
+            "queued_messages": 0,
+            "inflight_messages": 0,
+            "congestion_window": 64.0,
+            "last_ack_rtt_ms": None,
             "last_uplink_peer": None,
             "last_downlink_source": None,
             "last_uplink_at": None,
@@ -50,9 +70,9 @@ class Metrics:
             self.data[f"{prefix}_bytes"] += byte_count
             self.data["updated_at"] = time.time()
 
-    def increment(self, key: str) -> None:
+    def increment(self, key: str, amount: int = 1) -> None:
         with self._lock:
-            self.data[key] += 1
+            self.data[key] += amount
             self.data["updated_at"] = time.time()
 
     def set(self, **values: Any) -> None:

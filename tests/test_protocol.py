@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from asym_link.protocol import DATA_UP, FrameCodec, ProtocolError, ReplayWindow
+from h3ntun.protocol import DATA_UP, FrameCodec, ProtocolError, ReplayWindow
 
 
 class ProtocolTests(unittest.TestCase):

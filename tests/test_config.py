@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from asym_link.config import ConfigError, ForeignConfig, IranConfig, load_config
+from h3ntun.config import ConfigError, ForeignConfig, IranConfig, load_config
 
 
 TUNNEL_ID = "22" * 16

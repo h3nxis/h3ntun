@@ -2,7 +2,7 @@ import socket
 import struct
 import unittest
 
-from asym_link.raw_udp import build_ipv4_udp_packet, internet_checksum
+from h3ntun.raw_udp import build_ipv4_udp_packet, internet_checksum
 
 
 class PacketBuilderTests(unittest.TestCase):

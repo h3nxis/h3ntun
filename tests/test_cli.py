@@ -5,7 +5,7 @@ import socket
 import threading
 import unittest
 
-from asym_link.cli import main
+from h3ntun.cli import main
 
 
 class CliTests(unittest.TestCase):

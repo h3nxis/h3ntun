@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here.
 
+## 0.4.0 — 2026-09-24
+
+### Added
+
+- ChaCha20-Poly1305 frame encryption and HKDF-SHA256 key derivation.
+- MTU-safe fragmentation and bounded reassembly up to 60000-byte messages.
+- Optional single-loss XOR parity FEC.
+- Bidirectional acknowledgements, retransmission with capped exponential backoff, bounded queues, and AIMD windowing.
+- Atomic persistent replay state that survives receiver restarts.
+- Linux CI installation, shell syntax validation, fault profiles, FEC tests, and protocol-v3 security tests.
+
+### Changed
+
+- Renamed the package, module, command, service, account, install paths, and release bundle to `h3ntun`.
+- Upgraded the wire format to protocol 3. Both endpoints must be upgraded together.
+- The installer now creates a virtual environment and installs declared dependencies.
+
+### Fixed
+
+- Lost tunnel messages can now recover through FEC or retransmission.
+- Large application datagrams no longer depend on IP fragmentation by default.
+- Receiver-process restarts no longer discard replay history when a replay-state file is configured.
+- Payload confidentiality is now provided by the transport itself.
+
 ## 0.3.0 — 2026-09-23
 
 ### Added

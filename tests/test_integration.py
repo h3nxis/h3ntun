@@ -5,9 +5,9 @@ import time
 import unittest
 from pathlib import Path
 
-from asym_link.agent import ForeignAgent, IranAgent
-from asym_link.config import ForeignConfig, IranConfig
-from asym_link.protocol import DATA_DOWN, FrameCodec
+from h3ntun.agent import ForeignAgent, IranAgent
+from h3ntun.config import ForeignConfig, IranConfig
+from h3ntun.protocol import DATA_DOWN, FrameCodec
 
 
 def free_udp_port() -> int:

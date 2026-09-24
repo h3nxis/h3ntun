@@ -1,5 +1,5 @@
 {
-  "generated_at": 1790163396.1523337,
+  "generated_at": 1790241501.8279684,
   "scope": "loopback-only",
   "scenarios": [
     {
@@ -10,14 +10,16 @@
           "jitter_ms": 0.0,
           "drop_every": 0,
           "duplicate_every": 0,
-          "reorder_every": 0
+          "reorder_every": 0,
+          "drop_indices": []
         },
         "downlink": {
           "delay_ms": 10,
           "jitter_ms": 0.0,
           "drop_every": 0,
           "duplicate_every": 0,
-          "reorder_every": 0
+          "reorder_every": 0,
+          "drop_indices": []
         }
       },
       "result": {
@@ -25,20 +27,20 @@
         "received": 100,
         "loss_percent": 0.0,
         "latency_ms": {
-          "min": 18.62,
-          "avg": 33.99,
-          "max": 45.1
+          "min": 124.57,
+          "avg": 166.49,
+          "max": 205.1
         },
         "uplink": {
-          "received": 100,
-          "forwarded": 100,
+          "received": 200,
+          "forwarded": 200,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 100,
-          "forwarded": 100,
+          "received": 200,
+          "forwarded": 200,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
@@ -52,7 +54,17 @@
           "foreign_replay": 0,
           "foreign_inner_source": 0
         },
-        "framed_byte_ratio": 8.5
+        "reliability": {
+          "iran_retransmitted_frames": 0,
+          "foreign_retransmitted_frames": 0,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 100,
+          "foreign_acked_messages": 100,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
+        },
+        "framed_byte_ratio": 4.967
       }
     },
     {
@@ -63,49 +75,61 @@
           "jitter_ms": 5,
           "drop_every": 10,
           "duplicate_every": 0,
-          "reorder_every": 7
+          "reorder_every": 7,
+          "drop_indices": []
         },
         "downlink": {
           "delay_ms": 25,
           "jitter_ms": 10,
           "drop_every": 20,
           "duplicate_every": 13,
-          "reorder_every": 9
+          "reorder_every": 9,
+          "drop_indices": []
         }
       },
       "result": {
         "sent": 200,
-        "received": 171,
-        "loss_percent": 14.5,
+        "received": 200,
+        "loss_percent": 0.0,
         "latency_ms": {
-          "min": 28.1,
-          "avg": 65.13,
-          "max": 128.48
+          "min": 140.27,
+          "avg": 728.98,
+          "max": 5272.29
         },
         "uplink": {
-          "received": 200,
-          "forwarded": 180,
-          "dropped": 20,
+          "received": 476,
+          "forwarded": 429,
+          "dropped": 47,
           "duplicated": 0,
-          "reordered": 26
+          "reordered": 61
         },
         "downlink": {
-          "received": 180,
-          "forwarded": 184,
-          "dropped": 9,
-          "duplicated": 13,
-          "reordered": 19
+          "received": 446,
+          "forwarded": 457,
+          "dropped": 22,
+          "duplicated": 33,
+          "reordered": 48
         },
-        "backend_requests": 180,
+        "backend_requests": 200,
         "agent_drops": {
           "iran_auth": 0,
-          "iran_replay": 13,
+          "iran_replay": 57,
           "iran_source": 0,
           "foreign_auth": 0,
-          "foreign_replay": 0,
+          "foreign_replay": 13,
           "foreign_inner_source": 0
         },
-        "framed_byte_ratio": 7.268
+        "reliability": {
+          "iran_retransmitted_frames": 35,
+          "foreign_retransmitted_frames": 33,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 200,
+          "foreign_acked_messages": 200,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
+        },
+        "framed_byte_ratio": 4.184
       }
     },
     {
@@ -120,16 +144,16 @@
           "max": null
         },
         "uplink": {
-          "received": 10,
-          "forwarded": 10,
+          "received": 20,
+          "forwarded": 20,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 10,
+          "received": 40,
           "forwarded": 0,
-          "dropped": 10,
+          "dropped": 40,
           "duplicated": 0,
           "reordered": 0
         },
@@ -139,8 +163,18 @@
           "iran_replay": 0,
           "iran_source": 0,
           "foreign_auth": 0,
-          "foreign_replay": 0,
+          "foreign_replay": 10,
           "foreign_inner_source": 0
+        },
+        "reliability": {
+          "iran_retransmitted_frames": 10,
+          "foreign_retransmitted_frames": 10,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 0,
+          "foreign_acked_messages": 0,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
         },
         "framed_byte_ratio": 0.0
       },
@@ -149,21 +183,21 @@
         "received": 30,
         "loss_percent": 0.0,
         "latency_ms": {
-          "min": 18.4,
-          "avg": 26.29,
-          "max": 41.22
+          "min": 738.49,
+          "avg": 881.48,
+          "max": 983.03
         },
         "uplink": {
-          "received": 40,
-          "forwarded": 40,
+          "received": 100,
+          "forwarded": 100,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 40,
-          "forwarded": 30,
-          "dropped": 10,
+          "received": 120,
+          "forwarded": 80,
+          "dropped": 40,
           "duplicated": 0,
           "reordered": 0
         },
@@ -173,10 +207,20 @@
           "iran_replay": 0,
           "iran_source": 0,
           "foreign_auth": 0,
-          "foreign_replay": 0,
+          "foreign_replay": 20,
           "foreign_inner_source": 0
         },
-        "framed_byte_ratio": 6.375
+        "reliability": {
+          "iran_retransmitted_frames": 20,
+          "foreign_retransmitted_frames": 20,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 40,
+          "foreign_acked_messages": 40,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
+        },
+        "framed_byte_ratio": 3.822
       }
     },
     {
@@ -187,14 +231,16 @@
           "jitter_ms": 0.0,
           "drop_every": 0,
           "duplicate_every": 0,
-          "reorder_every": 0
+          "reorder_every": 0,
+          "drop_indices": []
         },
         "downlink": {
           "delay_ms": 0.0,
           "jitter_ms": 0.0,
           "drop_every": 0,
           "duplicate_every": 0,
-          "reorder_every": 0
+          "reorder_every": 0,
+          "drop_indices": []
         }
       },
       "result": {
@@ -202,20 +248,20 @@
         "received": 1000,
         "loss_percent": 0.0,
         "latency_ms": {
-          "min": 3.37,
-          "avg": 59.16,
-          "max": 108.25
+          "min": 116.8,
+          "avg": 657.14,
+          "max": 888.47
         },
         "uplink": {
-          "received": 1000,
-          "forwarded": 1000,
+          "received": 2000,
+          "forwarded": 2000,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 1000,
-          "forwarded": 1000,
+          "received": 2000,
+          "forwarded": 2000,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
@@ -229,7 +275,84 @@
           "foreign_replay": 0,
           "foreign_inner_source": 0
         },
-        "framed_byte_ratio": 9.875
+        "reliability": {
+          "iran_retransmitted_frames": 0,
+          "foreign_retransmitted_frames": 0,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 1000,
+          "foreign_acked_messages": 1000,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
+        },
+        "framed_byte_ratio": 5.694
+      }
+    },
+    {
+      "profile": "fec",
+      "link_profiles": {
+        "uplink": {
+          "delay_ms": 0.0,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0,
+          "drop_indices": [
+            3
+          ]
+        },
+        "downlink": {
+          "delay_ms": 0.0,
+          "jitter_ms": 0.0,
+          "drop_every": 0,
+          "duplicate_every": 0,
+          "reorder_every": 0,
+          "drop_indices": []
+        }
+      },
+      "result": {
+        "sent": 1,
+        "received": 1,
+        "loss_percent": 0.0,
+        "latency_ms": {
+          "min": 115.07,
+          "avg": 115.07,
+          "max": 115.07
+        },
+        "uplink": {
+          "received": 7,
+          "forwarded": 6,
+          "dropped": 1,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "downlink": {
+          "received": 7,
+          "forwarded": 7,
+          "dropped": 0,
+          "duplicated": 0,
+          "reordered": 0
+        },
+        "backend_requests": 1,
+        "agent_drops": {
+          "iran_auth": 0,
+          "iran_replay": 0,
+          "iran_source": 0,
+          "foreign_auth": 0,
+          "foreign_replay": 0,
+          "foreign_inner_source": 0
+        },
+        "reliability": {
+          "iran_retransmitted_frames": 0,
+          "foreign_retransmitted_frames": 0,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 1,
+          "iran_acked_messages": 1,
+          "foreign_acked_messages": 1,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
+        },
+        "framed_byte_ratio": 1.0
       }
     },
     {
@@ -239,20 +362,20 @@
         "received": 5,
         "loss_percent": 0.0,
         "latency_ms": {
-          "min": 5.38,
-          "avg": 5.82,
-          "max": 6.07
+          "min": 176.49,
+          "avg": 226.99,
+          "max": 259.55
         },
         "uplink": {
-          "received": 5,
-          "forwarded": 5,
+          "received": 260,
+          "forwarded": 260,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 5,
-          "forwarded": 5,
+          "received": 260,
+          "forwarded": 260,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
@@ -265,6 +388,16 @@
           "foreign_auth": 0,
           "foreign_replay": 0,
           "foreign_inner_source": 0
+        },
+        "reliability": {
+          "iran_retransmitted_frames": 0,
+          "foreign_retransmitted_frames": 0,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 5,
+          "foreign_acked_messages": 5,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
         },
         "framed_byte_ratio": 1.0
       },
@@ -278,15 +411,15 @@
           "max": null
         },
         "uplink": {
-          "received": 5,
-          "forwarded": 5,
+          "received": 260,
+          "forwarded": 260,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
         },
         "downlink": {
-          "received": 5,
-          "forwarded": 5,
+          "received": 260,
+          "forwarded": 260,
           "dropped": 0,
           "duplicated": 0,
           "reordered": 0
@@ -299,6 +432,16 @@
           "foreign_auth": 0,
           "foreign_replay": 0,
           "foreign_inner_source": 0
+        },
+        "reliability": {
+          "iran_retransmitted_frames": 0,
+          "foreign_retransmitted_frames": 0,
+          "iran_fec_recoveries": 0,
+          "foreign_fec_recoveries": 0,
+          "iran_acked_messages": 5,
+          "foreign_acked_messages": 5,
+          "iran_retry_exhausted": 0,
+          "foreign_retry_exhausted": 0
         },
         "framed_byte_ratio": 1.0
       },

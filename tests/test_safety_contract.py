@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class SafetyContractTests(unittest.TestCase):
     def test_scanner_has_no_live_raw_socket_path(self) -> None:
-        scanner = (ROOT / "scripts" / "spoof_scanner.py").read_text(encoding="utf-8")
+        scanner = (ROOT / "scripts" / "source_scanner.py").read_text(encoding="utf-8")
         self.assertNotIn("SOCK_RAW", scanner)
         self.assertNotIn("IP_HDRINCL", scanner)
         self.assertNotIn("IPPROTO_RAW", scanner)

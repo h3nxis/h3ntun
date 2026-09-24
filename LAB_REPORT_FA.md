@@ -1,55 +1,45 @@
-# گزارش محیط آزمایش پیوند نامتقارن
+# گزارش نهایی آزمایشگاه h3ntun 0.4.0
 
-تاریخ اجرا: ۲۰۲۶-۰۹-۲۳
+تاریخ: ۲۰۲۶-۰۹-۲۴
 
 دامنه: فقط loopback محلی
 
-فرمان: `python scripts/lab_environment.py --profile all --output LAB_REPORT.json`
-
-## معماری آزمایش
-
 ```text
-کلاینت محلی
-    │ UDP
-    ▼
-عامل ایران ──► relay رفت ──► عامل خارج ──► backend
-    ▲                                      │
-    └──── relay برگشت از 127.0.0.2 ◄───────┘
+client → Iran agent → uplink relay → foreign agent → backend
+client ← Iran agent ← downlink relay ← foreign agent ← backend
 ```
 
-uplink و downlink دو relay مستقل‌اند و می‌توانند delay، jitter، drop، duplicate، reorder و outage متفاوت داشته باشند. همه آدرس‌ها loopback و قابل bind هستند؛ raw socket، مبدأ جعل‌شده یا شبکه عمومی استفاده نمی‌شود.
+uplink و downlink مستقل‌اند. هر relay می‌تواند delay، jitter، drop، duplicate، reorder یا outage تزریق کند. downlink از `127.0.0.2` ارسال می‌شود تا کنترل source مشاهده‌شده نیز آزمایش شود.
 
-## نتایج آخرین اجرا
+## نتایج
 
-| پروفایل | ارسال | دریافت | افت | نتیجه مهم |
-|---|---:|---:|---:|---|
-| clean | 100 | 100 | 0% | میانگین RTT شبیه‌سازی‌شده 33.99 ms |
-| impaired | 200 | 171 | 14.5% | ۲۰ drop در رفت، ۹ drop در برگشت و رد ۱۳ duplicate به‌عنوان replay |
-| outage | 10 | 0 | 100% | downlink عمداً قطع بود |
-| recovery | 30 | 30 | 0% | پس از وصل relay کاملاً بازیابی شد |
-| stress | 1000 | 1000 | 0% | burst کامل بدون افت در میزبان آزمایش |
-| maximum payload | 5 | 5 | 0% | payload برابر ۶۰۰۰۰ بایت پذیرفته شد |
-| oversize | 1 | 0 | 100% | payload برابر ۶۰۰۰۱ بایت رد و شمارنده افزایش یافت |
+| پروفایل | ارسال | دریافت | نتیجه |
+|---|---:|---:|---|
+| clean | 100 | 100 | بدون retransmission و retry exhaustion |
+| impaired | 200 | 200 | ۴۷ drop رفت، ۲۲ drop برگشت، ۳۳ duplicate و ۶۸ retransmitted frame |
+| outage | 10 | 0 | مسیر برگشت عمداً خاموش بود |
+| recovery | 30 | 30 | پس از وصل مسیر، صف‌های قبلی نیز ACK شدند |
+| stress | 1000 | 1000 | بدون افت یا retry exhaustion |
+| fec | 1 | 1 | حذف یک fragment و بازسازی با parity، بدون retransmission |
+| maximum | 5 | 5 | پیام ۶۰۰۰۰بایتی با fragmentation کامل |
+| oversize | 1 | 0 | پیام ۶۰۰۰۱بایتی رد و شمارنده افزایش یافت |
 
-در پروفایل impaired افت عمدی است. این نتیجه روشن می‌کند که transport در نسخه فعلی reliability اضافه نمی‌کند: duplicate با replay protection حذف می‌شود، اما packet حذف‌شده retransmit نمی‌شود.
+در پروفایل impaired همهٔ پیام‌ها تحویل شدند. duplicate frameها توسط replay/dedup حذف شدند و پیام دوباره به backend یا client تحویل نشد. `auth_failures` و `source_mismatch_drops` در تمام پروفایل‌های عادی صفر بودند.
 
-## چیزی که این آزمایش اثبات می‌کند
+## موارد اثبات‌شده
 
-- جدایی منطقی مسیر رفت و برگشت؛
-- احراز HMAC و replay protection؛
-- بررسی source مشاهده‌شده در downlink؛
-- تحویل صحیح درخواست به backend و پاسخ به کلاینت؛
-- تحمل reorder در محدوده replay window؛
-- بازیابی پس از بازگشت مسیر؛
-- رفتار پایدار در burst محلی؛
-- اجرای درست محدودیت اندازه payload.
+- رمزنگاری end-to-end frameهای تونل؛
+- ACK روی مسیر مخالف؛
+- retransmission و backoff؛
+- FEC تک‌پاریتی؛
+- fragmentation و reassembly؛
+- جلوگیری از duplicate delivery؛
+- بازیابی بعد از outage؛
+- محدودیت اندازه و صف؛
+- کنترل source برگشت.
 
-## چیزی که اثبات نمی‌کند
+## خارج از دامنه loopback
 
-- دسترسی یا ظرفیت هیچ مسیر اینترنتی واقعی؛
-- پذیرش SNAT یا source انتخابی توسط دیتاسنتر یا اپراتور؛
-- عملکرد systemd، route policy، iptables/nftables یا MTU در Linux؛
-- امکان عبور از فایروال یا محدودیت شبکه عمومی؛
-- امنیت محرمانگی payload؛ HMAC فقط اصالت و یکپارچگی می‌دهد.
+این آزمایش ظرفیت یا دسترسی اینترنت عمومی، پذیرش source توسط اپراتور، systemd، route policy، iptables/nftables و MTU واقعی مسیر را اثبات نمی‌کند. این موارد باید روی endpointهای واقعی، مجاز و متعلق به اپراتور پروژه acceptance test شوند.
 
-جزئیات عددی کامل در `LAB_REPORT.json` قرار دارد.
+اعداد کامل در `LAB_REPORT.json` ذخیره شده‌اند.

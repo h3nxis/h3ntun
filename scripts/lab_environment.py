@@ -23,8 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from asym_link.agent import ForeignAgent, IranAgent
-from asym_link.config import ForeignConfig, IranConfig
+from h3ntun.agent import ForeignAgent, IranAgent
+from h3ntun.config import ForeignConfig, IranConfig
 
 
 def free_udp_port(host: str = "127.0.0.1") -> int:
@@ -42,6 +42,7 @@ class LinkProfile:
     drop_every: int = 0
     duplicate_every: int = 0
     reorder_every: int = 0
+    drop_indices: tuple[int, ...] = ()
 
     def validate(self) -> None:
         if self.delay_ms < 0 or self.jitter_ms < 0:
@@ -50,6 +51,8 @@ class LinkProfile:
             value = getattr(self, name)
             if value < 0 or value == 1:
                 raise ValueError(f"{name} must be zero or at least two")
+        if any(index <= 0 for index in self.drop_indices):
+            raise ValueError("drop_indices must contain positive packet indexes")
 
 
 class UdpLinkEmulator:
@@ -119,7 +122,7 @@ class UdpLinkEmulator:
             self.packet_index += 1
             index = self.packet_index
             self.stats["received"] += 1
-            if not self.enabled.is_set() or (
+            if not self.enabled.is_set() or index in self.profile.drop_indices or (
                 self.profile.drop_every and index % self.profile.drop_every == 0
             ):
                 self.stats["dropped"] += 1
@@ -328,6 +331,22 @@ class AsymmetricLab:
             self.client.sendto(payload, self.iran.inner_sock.getsockname())
         receiver.join(timeout=max(0.1, deadline - time.monotonic() + 0.2))
 
+        # Responses can reach the client just before their final ACK reaches the
+        # sender. Give control traffic a short drain window so the report does
+        # not describe successfully completed messages as still in flight.
+        drain_deadline = time.monotonic() + min(1.0, timeout_seconds)
+        while time.monotonic() < drain_deadline:
+            iran_pending = self.iran.sender.snapshot()
+            foreign_pending = self.foreign.sender.snapshot()
+            if not any((
+                iran_pending["queued_messages"],
+                iran_pending["inflight_messages"],
+                foreign_pending["queued_messages"],
+                foreign_pending["inflight_messages"],
+            )):
+                break
+            time.sleep(0.01)
+
         iran_metrics = self.iran.metrics.snapshot()
         foreign_metrics = self.foreign.metrics.snapshot()
         return {
@@ -349,6 +368,16 @@ class AsymmetricLab:
                 "foreign_auth": foreign_metrics["auth_failures"],
                 "foreign_replay": foreign_metrics["replay_drops"],
                 "foreign_inner_source": foreign_metrics["inner_source_mismatch_drops"],
+            },
+            "reliability": {
+                "iran_retransmitted_frames": iran_metrics["retransmitted_frames"],
+                "foreign_retransmitted_frames": foreign_metrics["retransmitted_frames"],
+                "iran_fec_recoveries": iran_metrics["fec_recoveries"],
+                "foreign_fec_recoveries": foreign_metrics["fec_recoveries"],
+                "iran_acked_messages": iran_metrics["acked_messages"],
+                "foreign_acked_messages": foreign_metrics["acked_messages"],
+                "iran_retry_exhausted": iran_metrics["retry_exhausted"],
+                "foreign_retry_exhausted": foreign_metrics["retry_exhausted"],
             },
             "framed_byte_ratio": (
                 round(
@@ -398,6 +427,21 @@ def run_profile(name: str) -> dict:
     elif name == "stress":
         lab = AsymmetricLab(response_size=1200)
         count = 1000
+    elif name == "fec":
+        lab = AsymmetricLab(
+            LinkProfile(drop_indices=(3,)),
+            LinkProfile(),
+            response_size=5000,
+        )
+        lab.start()
+        try:
+            result = lab.run_burst(1, request_size=5000, timeout_seconds=3)
+            return {"profile": name, "link_profiles": {
+                "uplink": asdict(lab.uplink.profile),
+                "downlink": asdict(lab.downlink.profile),
+            }, "result": result}
+        finally:
+            lab.stop()
     elif name == "boundary":
         lab = AsymmetricLab(response_size=60_000)
         lab.start()
@@ -417,7 +461,7 @@ def run_profile(name: str) -> dict:
 
     lab.start()
     try:
-        result = lab.run_burst(count, timeout_seconds=5)
+        result = lab.run_burst(count, timeout_seconds=8)
         return {"profile": name, "link_profiles": {
             "uplink": asdict(lab.uplink.profile),
             "downlink": asdict(lab.downlink.profile),
@@ -430,13 +474,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Loopback asymmetric-link fault lab")
     parser.add_argument(
         "--profile",
-        choices=["clean", "impaired", "outage", "stress", "boundary", "all"],
+        choices=["clean", "impaired", "outage", "stress", "fec", "boundary", "all"],
         default="all",
     )
     parser.add_argument("--output", help="optional JSON report path")
     args = parser.parse_args()
     names = (
-        ["clean", "impaired", "outage", "stress", "boundary"]
+        ["clean", "impaired", "outage", "stress", "fec", "boundary"]
         if args.profile == "all"
         else [args.profile]
     )

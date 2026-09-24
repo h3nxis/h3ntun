@@ -19,7 +19,7 @@ from .raw_udp import build_ipv4_udp_packet
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="hy-asym-link")
+    parser = argparse.ArgumentParser(prog="h3ntun")
     sub = parser.add_subparsers(dest="command", required=True)
 
     run = sub.add_parser("run", help="run an Iran or foreign agent")
@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify", help="verify a running agent against its configuration")
     verify.add_argument("--config", required=True)
 
-    packet = sub.add_parser("packet-selftest", help="build and validate a local raw-packet sample")
+    packet = sub.add_parser("packet-selftest", help="validate offline IPv4/UDP checksum code")
     packet.add_argument("--source", default="127.0.0.2")
     packet.add_argument("--destination", default="127.0.0.1")
 
@@ -134,6 +134,12 @@ def verify(config_path: str) -> int:
             if isinstance(config, IranConfig)
             else int(data.get("uplink_rx_packets", 0)) > 0
         ),
+        "encrypted_frames_seen": int(data.get("encrypted_frames_rx", 0)) > 0,
+        "no_auth_failures": int(data.get("auth_failures", 0)) == 0,
+        "no_source_mismatches": int(data.get("source_mismatch_drops", 0)) == 0,
+        "no_inner_source_mismatches": int(data.get("inner_source_mismatch_drops", 0)) == 0,
+        "no_queue_drops": int(data.get("queue_drops", 0)) == 0,
+        "no_retry_exhaustion": int(data.get("retry_exhausted", 0)) == 0,
     }
     if isinstance(config, IranConfig) and config.expected_downlink_source:
         checks["expected_source_seen"] = data.get("last_downlink_source") == config.expected_downlink_source
@@ -172,7 +178,7 @@ def probe_link(target: str, count: int, timeout: float) -> int:
     samples = []
     try:
         for sequence in range(1, count + 1):
-            payload = f"hy-asym-probe:{sequence}:{time.time_ns()}".encode()
+            payload = f"h3ntun-probe:{sequence}:{time.time_ns()}".encode()
             started = time.perf_counter()
             sock.sendto(payload, destination)
             try:

@@ -4,7 +4,7 @@ set -euo pipefail
 # Scoped route and reverse-path-filter helper with rollback state.
 # It never disables rp_filter globally; loose mode (2) is applied per interface.
 
-STATE_DIR="/var/lib/hy-asym-link/network-state"
+STATE_DIR="/var/lib/h3ntun/network-state"
 
 fail() {
   echo "error: $*" >&2

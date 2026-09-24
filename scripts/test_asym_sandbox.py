@@ -4,7 +4,7 @@ End-to-End Simulation & Benchmark Sandbox for Asymmetric Link:
 - Simulates a separate paid uplink (small requests / ACKs)
 - Simulates a separately sourced UDP downlink by binding a local loopback alias
 - Measures: Latency, Throughput, Loss, and the exact Asymmetric Ratio Multiplier.
-- Tests security rejection for invalid HMAC / untrusted spoofed source.
+- Tests AEAD tamper rejection and an unexpected observed source.
 
 This sandbox does not perform SNAT, raw-source spoofing, or public routing.
 """
@@ -29,9 +29,9 @@ if sys.stdout.encoding != "utf-8":
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from asym_link.agent import ForeignAgent, IranAgent
-from asym_link.config import ForeignConfig, IranConfig
-from asym_link.protocol import DATA_DOWN, FrameCodec
+from h3ntun.agent import ForeignAgent, IranAgent
+from h3ntun.config import ForeignConfig, IranConfig
+from h3ntun.protocol import DATA_DOWN, FrameCodec
 
 
 def free_udp_port() -> int:
@@ -201,7 +201,7 @@ def run_simulation():
         print(f"[OK] Observed Downlink Source:   {iran_m['last_downlink_source']} (Matches expected '{simulated_return_source_ip}')")
         assert iran_m["last_downlink_source"] == simulated_return_source_ip, "Source IP check failed!"
 
-        # Test 2: Forged source rejection
+        # Test 2: Unexpected observed source rejection
         print("[+] Testing untrusted source packet rejection...")
         forger = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         forged_packet = FrameCodec(tunnel_id, shared_secret).encode(DATA_DOWN, 9999, b"untrusted")
@@ -213,21 +213,21 @@ def run_simulation():
 
         iran_m_after = iran_agent.metrics.snapshot()
         print(f"[OK] Untrusted Source Packets Dropped: {iran_m_after['source_mismatch_drops']}")
-        assert iran_m_after["source_mismatch_drops"] >= 1, "Forged source was not dropped!"
+        assert iran_m_after["source_mismatch_drops"] >= 1, "Unexpected source was not dropped!"
 
-        # Test 3: HMAC Tamper rejection
-        print("[+] Testing HMAC signature tamper rejection...")
+        # Test 3: AEAD tamper rejection
+        print("[+] Testing AEAD tamper rejection...")
         tamperer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         tamperer.bind((simulated_return_source_ip, 0))
         tampered_packet = bytearray(forged_packet)
-        tampered_packet[-1] ^= 0xFF  # Change authenticated payload; HMAC must no longer match
+        tampered_packet[-1] ^= 0xFF  # Change ciphertext; the AEAD tag must reject it
         tamperer.sendto(bytes(tampered_packet), ("127.0.0.1", downlink_port))
         tamperer.close()
         time.sleep(0.2)
 
         iran_m_tamper = iran_agent.metrics.snapshot()
-        print(f"[OK] Tampered HMAC Packets Dropped:   {iran_m_tamper['auth_failures']}")
-        assert iran_m_tamper["auth_failures"] >= 1, "Tampered HMAC was not rejected!"
+        print(f"[OK] Tampered AEAD Packets Dropped:   {iran_m_tamper['auth_failures']}")
+        assert iran_m_tamper["auth_failures"] >= 1, "Tampered ciphertext was not rejected!"
 
         # Clean shutdown
         iran_agent.stop()

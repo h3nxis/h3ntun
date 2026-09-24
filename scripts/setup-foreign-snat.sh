@@ -67,7 +67,7 @@ source_is_local "${SOURCE_IP}" || fail "source IP is not assigned to this server
 
 RULE=(
   -d "${DESTINATION_IP}" -p udp --dport "${DESTINATION_PORT}"
-  -m comment --comment "hy-asym-link-source-nat"
+  -m comment --comment "h3ntun-source-nat"
   -j SNAT --to-source "${SOURCE_IP}:${SOURCE_PORT}"
 )
 

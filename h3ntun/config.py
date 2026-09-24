@@ -20,6 +20,12 @@ class ConfigError(ValueError):
     pass
 
 
+def parse_bool(value: Any, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigError(f"{field} must be true or false")
+    return value
+
+
 def split_host_port(value: str, field: str) -> tuple[str, int]:
     if not isinstance(value, str) or ":" not in value:
         raise ConfigError(f"{field} must use host:port format")
@@ -64,7 +70,7 @@ def parse_ipv4(value: str, field: str, allow_unspecified: bool = False) -> str:
     return str(ip)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class CommonConfig:
     role: str
     tunnel_id: bytes
@@ -74,9 +80,16 @@ class CommonConfig:
     keepalive_seconds: float
     health_timeout_seconds: float
     recv_buffer_bytes: int
+    fragment_payload_bytes: int = 1200
+    fec_enabled: bool = True
+    reliable: bool = True
+    retransmit_timeout_seconds: float = 0.5
+    max_retries: int = 8
+    max_pending_messages: int = 2048
+    reassembly_timeout_seconds: float = 30.0
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class IranConfig(CommonConfig):
     inner_listen: tuple[str, int]
     uplink_bind: tuple[str, int]
@@ -84,9 +97,10 @@ class IranConfig(CommonConfig):
     downlink_listen: tuple[str, int]
     expected_downlink_source: str | None
     expected_inner_peer: tuple[str, int] | None = None
+    replay_state_file: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ForeignConfig(CommonConfig):
     uplink_listen: tuple[str, int]
     inner_bridge_listen: tuple[str, int]
@@ -95,6 +109,7 @@ class ForeignConfig(CommonConfig):
     downlink_mode: str
     downlink_source: str | None
     downlink_source_port: int
+    replay_state_file: str | None = None
 
 
 def _decode_tunnel_id(value: Any) -> bytes:
@@ -135,20 +150,37 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
         tunnel_id=_decode_tunnel_id(raw.get("tunnel_id")),
         shared_secret=_decode_secret(raw.get("shared_secret")),
         health_listen=split_host_port(raw.get("health_listen", "127.0.0.1:9081"), "health_listen"),
-        metrics_file=str(raw.get("metrics_file", "/var/lib/hy-asym-link/metrics.json")),
+        metrics_file=str(raw.get("metrics_file", "/var/lib/h3ntun/metrics.json")),
         keepalive_seconds=float(raw.get("keepalive_seconds", 5.0)),
         health_timeout_seconds=float(raw.get("health_timeout_seconds", 20.0)),
         recv_buffer_bytes=int(raw.get("recv_buffer_bytes", 4 * 1024 * 1024)),
+        fragment_payload_bytes=int(raw.get("fragment_payload_bytes", 1200)),
+        fec_enabled=parse_bool(raw.get("fec_enabled", True), "fec_enabled"),
+        reliable=parse_bool(raw.get("reliable", True), "reliable"),
+        retransmit_timeout_seconds=float(raw.get("retransmit_timeout_seconds", 0.5)),
+        max_retries=int(raw.get("max_retries", 8)),
+        max_pending_messages=int(raw.get("max_pending_messages", 2048)),
+        reassembly_timeout_seconds=float(raw.get("reassembly_timeout_seconds", 30.0)),
     )
     if (
         not math.isfinite(common["keepalive_seconds"])
         or not math.isfinite(common["health_timeout_seconds"])
         or common["keepalive_seconds"] <= 0
         or common["health_timeout_seconds"] <= 0
+        or not math.isfinite(common["retransmit_timeout_seconds"])
+        or not math.isfinite(common["reassembly_timeout_seconds"])
+        or common["retransmit_timeout_seconds"] <= 0
+        or common["reassembly_timeout_seconds"] <= 0
     ):
-        raise ConfigError("keepalive and health timeout must be finite and positive")
+        raise ConfigError("all timeout values must be finite and positive")
     if common["recv_buffer_bytes"] < 65_536:
         raise ConfigError("recv_buffer_bytes is too small")
+    if not 256 <= common["fragment_payload_bytes"] <= 1391:
+        raise ConfigError("fragment_payload_bytes must be between 256 and 1391")
+    if not 0 <= common["max_retries"] <= 100:
+        raise ConfigError("max_retries must be between 0 and 100")
+    if not 1 <= common["max_pending_messages"] <= 100_000:
+        raise ConfigError("max_pending_messages must be between 1 and 100000")
 
     if role == "iran":
         expected = raw.get("expected_downlink_source")
@@ -167,6 +199,11 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
             downlink_listen=split_host_port(raw["downlink_listen"], "downlink_listen"),
             expected_downlink_source=expected,
             expected_inner_peer=expected_inner_peer,
+            replay_state_file=(
+                str(raw.get("replay_state_file", "/var/lib/h3ntun/iran-replay.json"))
+                if raw.get("replay_state_file", "/var/lib/h3ntun/iran-replay.json")
+                else None
+            ),
         )
 
     mode = str(raw.get("downlink_mode", "udp")).strip().lower()
@@ -189,4 +226,9 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
         downlink_mode=mode,
         downlink_source=source,
         downlink_source_port=source_port,
+        replay_state_file=(
+            str(raw.get("replay_state_file", "/var/lib/h3ntun/foreign-replay.json"))
+            if raw.get("replay_state_file", "/var/lib/h3ntun/foreign-replay.json")
+            else None
+        ),
     )

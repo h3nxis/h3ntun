@@ -19,9 +19,10 @@ class LabEnvironmentTests(unittest.TestCase):
         lab = AsymmetricLab(LinkProfile(drop_every=5), LinkProfile())
         lab.start()
         try:
-            result = lab.run_burst(20, timeout_seconds=1)
-            self.assertEqual(result["uplink"]["dropped"], 4)
-            self.assertEqual(result["received"], 16)
+            result = lab.run_burst(20, timeout_seconds=3)
+            self.assertGreater(result["uplink"]["dropped"], 0)
+            self.assertEqual(result["received"], 20)
+            self.assertGreater(result["reliability"]["iran_retransmitted_frames"], 0)
         finally:
             lab.stop()
 
@@ -35,6 +36,21 @@ class LabEnvironmentTests(unittest.TestCase):
             lab.downlink.set_enabled(True)
             recovered = lab.run_burst(5, timeout_seconds=2)
             self.assertEqual(recovered["received"], 5)
+        finally:
+            lab.stop()
+
+    def test_single_fragment_loss_is_recovered_by_fec(self) -> None:
+        lab = AsymmetricLab(
+            LinkProfile(drop_indices=(3,)),
+            LinkProfile(),
+            response_size=5000,
+        )
+        lab.start()
+        try:
+            result = lab.run_burst(1, request_size=5000, timeout_seconds=2)
+            self.assertEqual(result["received"], 1)
+            self.assertEqual(result["reliability"]["foreign_fec_recoveries"], 1)
+            self.assertEqual(result["reliability"]["iran_retransmitted_frames"], 0)
         finally:
             lab.stop()
 
