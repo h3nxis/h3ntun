@@ -11,11 +11,16 @@
 - FEC تک‌پاریتی برای بازیابی یک fragment گمشده بدون انتظار برای retransmission؛
 - ACK دوطرفه، retransmission با backoff نمایی و پنجره congestion از نوع AIMD؛
 - صف محدود برای جلوگیری از مصرف نامحدود حافظه؛
-- replay state پایدار و fail-closed با ذخیره اتمیک روی دیسک؛
+- replay state پایدار با ذخیرهٔ اتمیک پیش از تحویل فریم؛
 - کنترل مبدأ بیرونی و peer داخلی؛
 - آزمایشگاه loopback برای delay، jitter، loss، duplicate، reorder، outage، recovery، FEC و stress.
 
 نسخه ۳ پروتکل با نسخه‌های قدیمی سازگار نیست و هر دو سرور باید هم‌زمان ارتقا پیدا کنند.
+
+## تغییرات توسعه‌ای منتشرنشده
+
+در شاخهٔ توسعه، replay check در حافظه انجام می‌شود و checkpoint به writer مستقل
+با یک جایگاه snapshot منتقل شده است. پیامد crash سخت در بخش تنظیمات توضیح داده شده است.
 
 ## معماری
 
@@ -90,6 +95,15 @@ installer یک virtualenv در `/opt/h3ntun/venv` می‌سازد، وابستگ
 - `max_pending_messages`: سقف مجموع پیام‌های queued و in-flight؛
 - `reassembly_timeout_seconds`: زمان نگهداری پیام ناقص؛
 - `replay_state_file`: فایل state پایدار؛ برای هر agent باید جدا باشد.
+- `replay_checkpoint_interval_seconds`: فاصلهٔ عادی checkpoint؛ پیش‌فرض ۰٫۰۵ ثانیه؛
+- `replay_checkpoint_batch_frames`: انجام زودتر checkpoint پس از این تعداد فریم؛ پیش‌فرض ۱۲۸.
+  writer فقط یک snapshot منتظر را نگه می‌دارد و snapshotهای تازه جای قبلی را می‌گیرند.
+
+پردازش فریم منتظر نوشتن دیسک نمی‌ماند. پس از crash سخت، فریم‌هایی که بعد از آخرین
+checkpoint پایدار پذیرفته شده‌اند ممکن است دوباره پذیرفته شوند. خاموشی عادی آخرین
+state را تا سقف پنج ثانیه flush می‌کند. برای پایش از `replay_checkpoint_lag_frames`،
+`replay_checkpoint_lag_ms`، `replay_write_latency_ms` و `replay_persistence_errors`
+در status/metrics استفاده کنید.
 
 اگر مسیر برای مدت بیشتری از بودجه retry قطع بماند، پیام منقضی می‌شود و شمارنده `retry_exhausted` افزایش می‌یابد. مقدار timeout و retry را متناسب با نوع لینک تنظیم کنید.
 

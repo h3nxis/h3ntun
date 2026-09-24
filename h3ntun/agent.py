@@ -55,7 +55,13 @@ class BaseAgent:
         self._counter_lock = threading.Lock()
         replay_path = getattr(config, "replay_state_file", None)
         self.replay: ReplayWindow = (
-            PersistentReplayWindow(replay_path, config.tunnel_id)
+            PersistentReplayWindow(
+                replay_path,
+                config.tunnel_id,
+                interval_seconds=config.replay_checkpoint_interval_seconds,
+                batch_frames=config.replay_checkpoint_batch_frames,
+                on_checkpoint=lambda stats: self.metrics.set(**stats),
+            )
             if replay_path
             else ReplayWindow()
         )
@@ -87,6 +93,8 @@ class BaseAgent:
     def persist_loop(self) -> None:
         while not self.runtime.stop.wait(2.0):
             try:
+                if isinstance(self.replay, PersistentReplayWindow):
+                    self.metrics.set(**self.replay.stats())
                 self.metrics.persist()
             except Exception as exc:  # pragma: no cover - filesystem dependent
                 self.metrics.set(last_error=f"metrics: {exc}")
@@ -112,6 +120,10 @@ class BaseAgent:
             self.health_server.server_close()
         for thread in self.runtime.threads:
             thread.join(timeout=2.0)
+        if isinstance(self.replay, PersistentReplayWindow):
+            if not self.replay.close():
+                self.metrics.set(last_error="replay checkpoint did not finish during shutdown")
+            self.metrics.set(**self.replay.stats())
         try:
             self.metrics.persist()
         except OSError:
@@ -193,6 +205,8 @@ class BaseAgent:
         accepted = self.replay.accept(frame.sequence, frame.session_id)
         if not accepted:
             self.metrics.increment("replay_drops")
+        elif isinstance(self.replay, PersistentReplayWindow):
+            self.metrics.set(**self.replay.stats())
         return accepted
 
     def accept_fragment(self, frame: Frame) -> bytes | None:

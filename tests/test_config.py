@@ -30,6 +30,39 @@ class ConfigTests(unittest.TestCase):
             })
             self.assertIsInstance(load_config(path), IranConfig)
 
+    def test_replay_checkpoint_settings_are_validated(self) -> None:
+        base = {
+            "role": "iran",
+            "tunnel_id": TUNNEL_ID,
+            "shared_secret": SECRET,
+            "inner_listen": "127.0.0.1:5000",
+            "foreign_uplink": "127.0.0.1:7000",
+            "downlink_listen": "127.0.0.1:7001",
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_config(folder, {
+                **base,
+                "replay_checkpoint_interval_seconds": 0.02,
+                "replay_checkpoint_batch_frames": 64,
+            })
+            config = load_config(path)
+            self.assertEqual(config.replay_checkpoint_interval_seconds, 0.02)
+            self.assertEqual(config.replay_checkpoint_batch_frames, 64)
+            for invalid in (0, -1, float("inf")):
+                with self.subTest(interval=invalid):
+                    path = write_config(folder, {
+                        **base, "replay_checkpoint_interval_seconds": invalid,
+                    })
+                    with self.assertRaises(ConfigError):
+                        load_config(path)
+            for invalid in (0, -1, 100_001):
+                with self.subTest(batch=invalid):
+                    path = write_config(folder, {
+                        **base, "replay_checkpoint_batch_frames": invalid,
+                    })
+                    with self.assertRaises(ConfigError):
+                        load_config(path)
+
     def test_iran_expected_inner_peer(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = write_config(folder, {

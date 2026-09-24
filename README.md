@@ -10,11 +10,17 @@ Persian guide: [README_FA.md](README_FA.md)
 - Wire protocol 3 with random process sessions and unique sequence-derived nonces.
 - 1200-byte default fragments, reassembly for messages up to 60000 bytes, and single-loss XOR parity FEC.
 - End-to-end message ACKs, retransmission with exponential backoff, bounded queues, and AIMD congestion windowing.
-- Persistent, fail-closed replay state with atomic replacement before an accepted frame is delivered.
+- Persistent replay state with atomic replacement before delivery.
 - Exact outer-source and local-peer allowlists.
 - Deterministic loopback fault lab covering delay, jitter, loss, duplication, reordering, outage, recovery, FEC, stress, and payload boundaries.
 
 Wire protocol 3 is incompatible with earlier releases. Upgrade both endpoints together.
+
+## Unreleased development changes
+
+The development branch moves replay checks to memory and checkpoints to a
+one-slot asynchronous writer. On POSIX, the writer fsyncs the parent directory
+after atomic replacement. The crash-replay trade-off is described below.
 
 ## Architecture
 
@@ -66,6 +72,9 @@ The installer creates `/opt/h3ntun/venv`, installs the package and its cryptogra
 - `max_retries`: retransmissions allowed after the initial send.
 - `max_pending_messages`: bounded queued plus in-flight messages.
 - `replay_state_file`: durable receiver replay state. Do not share one file between agents.
+- `replay_checkpoint_interval_seconds`: maximum normal batching interval; default 0.05.
+- `replay_checkpoint_batch_frames`: trigger an earlier checkpoint after this many
+  accepted frames; default 128. The writer coalesces snapshots into one queue slot.
 - `expected_downlink_source`: optional observed-source allowlist at the Iran endpoint.
 - `expected_inner_peer`: optional fixed local application endpoint at the Iran side.
 - `downlink_source`: an address assigned to the foreign host, or `null` for kernel route selection.
@@ -85,6 +94,11 @@ See [TEST_REPORT.md](TEST_REPORT.md), [LAB_REPORT_FA.md](LAB_REPORT_FA.md), and 
 
 - Both authorized paths must be routable; software cannot override upstream filtering or provider policy.
 - Reliability is bounded by queue and retry settings. An outage longer than that budget can still expire messages.
+- Replay checks run in memory and forwarding does not wait for disk. After a hard
+  crash, frames accepted since the latest durable checkpoint may be accepted again.
+  A clean shutdown flushes the latest state, subject to a five-second timeout.
+  Monitor `replay_checkpoint_lag_frames`, `replay_checkpoint_lag_ms`,
+  `replay_write_latency_ms`, and `replay_persistence_errors` in status/metrics.
 - `h3ntun` transports UDP datagrams; it is not a TUN/TAP device or a general IP router.
 - Clock synchronization is required for the authenticated timestamp window.
 - Linux firewall, routing, MTU, and provider source validation must be accepted on the actual hosts.

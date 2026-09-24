@@ -7,7 +7,11 @@
 - HKDF-SHA256 derives the AEAD key from the shared secret and tunnel id.
 - Nonces are deterministically derived from the random process session, global sequence, frame kind, flags, and fragment index. A sequence is never intentionally reused within a session.
 - The full cleartext header is authenticated as AEAD associated data.
-- Replay state is written atomically before an accepted frame is processed. Missing, corrupt, wrong-tunnel, or wrong-format state fails closed.
+- Replay decisions use memory. A separate writer coalesces accepted states and atomically
+  replaces the checkpoint after fsyncing the file and, on POSIX, its parent directory.
+  A hard crash can allow replay of frames accepted after the last durable checkpoint.
+  Clean shutdown attempts to flush the latest state within five seconds. Corrupt,
+  wrong-tunnel, or wrong-format checkpoint files fail closed on startup.
 - Exact observed outer sources and local application peers can be allowlisted.
 - Queues, reassembly tables, retry counts, fragment size, and message size are bounded.
 
