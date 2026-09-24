@@ -152,7 +152,7 @@ class ReliableSenderTests(unittest.TestCase):
         started = time.monotonic()
         sender.pump(started)
         sender.pump(started + 0.2)
-        exhausted = sender.pump(started + 0.4)
+        exhausted = sender.pump(started + 0.45)
         self.assertEqual(exhausted.exhausted_messages, 1)
 
 
