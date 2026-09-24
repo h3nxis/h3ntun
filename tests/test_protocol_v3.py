@@ -1,8 +1,11 @@
 import json
+import os
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from h3ntun.protocol import (
     ACK_UP,
@@ -154,15 +157,26 @@ class ReliableSenderTests(unittest.TestCase):
 
 
 class PersistentReplayTests(unittest.TestCase):
+    @staticmethod
+    def wait_for(predicate, timeout: float = 2.0) -> bool:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.005)
+        return False
+
     def test_state_survives_receiver_restart(self) -> None:
         tunnel_id = bytes.fromhex("ef" * 16)
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "replay.json"
             first = PersistentReplayWindow(path, tunnel_id, size=64)
             self.assertTrue(first.accept(100, session_id=1))
+            self.assertTrue(first.close())
             second = PersistentReplayWindow(path, tunnel_id, size=64)
             self.assertFalse(second.accept(100, session_id=1))
             self.assertTrue(second.accept(101, session_id=1))
+            self.assertTrue(second.close())
 
     def test_retired_session_survives_restart(self) -> None:
         tunnel_id = bytes.fromhex("12" * 16)
@@ -171,8 +185,10 @@ class PersistentReplayTests(unittest.TestCase):
             first = PersistentReplayWindow(path, tunnel_id, size=64)
             first.accept(1, session_id=10)
             first.accept(1, session_id=11)
+            self.assertTrue(first.close())
             second = PersistentReplayWindow(path, tunnel_id, size=64)
             self.assertFalse(second.accept(2, session_id=10))
+            self.assertTrue(second.close())
 
     def test_corrupt_state_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -180,6 +196,88 @@ class PersistentReplayTests(unittest.TestCase):
             path.write_text(json.dumps({"format": 1, "window": {}}), encoding="utf-8")
             with self.assertRaises(ProtocolError):
                 PersistentReplayWindow(path, b"t" * 16, size=64)
+
+    def test_packet_storm_coalesces_without_waiting_for_blocked_disk(self) -> None:
+        tunnel_id = b"s" * 16
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "replay.json"
+            window = PersistentReplayWindow(path, tunnel_id, size=4096, batch_frames=1)
+            entered = threading.Event()
+            release = threading.Event()
+            real_write = window._write_snapshot
+
+            def slow_write(state):
+                entered.set()
+                if not release.wait(3):
+                    raise OSError("simulated stalled disk")
+                real_write(state)
+
+            try:
+                with patch.object(window, "_write_snapshot", side_effect=slow_write):
+                    self.assertTrue(window.accept(1, session_id=1))
+                    self.assertTrue(entered.wait(1))
+                    started = time.monotonic()
+                    for sequence in range(2, 1002):
+                        self.assertTrue(window.accept(sequence, session_id=1))
+                    self.assertLess(time.monotonic() - started, 1.0)
+                    stats = window.stats()
+                    self.assertEqual(stats["replay_checkpoint_queue_depth"], 1)
+                    self.assertEqual(stats["replay_checkpoint_lag_frames"], 1001)
+                    self.assertGreater(stats["replay_snapshots_coalesced"], 0)
+            finally:
+                release.set()
+                self.assertTrue(window.close())
+            restarted = PersistentReplayWindow(path, tunnel_id)
+            self.assertFalse(restarted.accept(1001, session_id=1))
+            self.assertTrue(restarted.close())
+
+    def test_interval_group_commit_and_latency_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            window = PersistentReplayWindow(
+                Path(folder) / "replay.json", b"g" * 16,
+                interval_seconds=0.05, batch_frames=1000,
+            )
+            for sequence in range(10):
+                self.assertTrue(window.accept(sequence, session_id=4))
+            self.assertTrue(self.wait_for(lambda: window.stats()["replay_checkpoints"] == 1))
+            stats = window.stats()
+            self.assertEqual(stats["replay_checkpoint_lag_frames"], 0)
+            self.assertEqual(stats["replay_checkpoint_lag_ms"], 0)
+            self.assertIsNotNone(stats["replay_write_latency_ms"])
+            self.assertTrue(window.close())
+
+    def test_write_failure_is_reported_and_retried(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "replay.json"
+            window = PersistentReplayWindow(
+                path, b"e" * 16, interval_seconds=0.01, batch_frames=1,
+            )
+            real_write = window._write_snapshot
+            attempts = 0
+
+            def fail_once(state):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise OSError("simulated disk failure")
+                real_write(state)
+
+            with patch.object(window, "_write_snapshot", side_effect=fail_once):
+                self.assertTrue(window.accept(10, session_id=1))
+                self.assertTrue(self.wait_for(lambda: window.stats()["replay_persistence_errors"] == 1))
+                self.assertTrue(self.wait_for(lambda: window.stats()["replay_checkpoints"] == 1))
+            self.assertEqual(window.stats()["replay_persistence_errors"], 1)
+            self.assertIsNone(window.stats()["replay_persistence_last_error"])
+            self.assertTrue(window.close())
+
+    @unittest.skipUnless(os.name == "posix", "directory fsync is POSIX-specific")
+    def test_checkpoint_fsyncs_file_and_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            window = PersistentReplayWindow(Path(folder) / "replay.json", b"d" * 16)
+            with patch("h3ntun.protocol.os.fsync", wraps=os.fsync) as fsync:
+                self.assertTrue(window.accept(1, session_id=1))
+                self.assertTrue(window.close())
+            self.assertGreaterEqual(fsync.call_count, 2)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@
   "health_listen": "127.0.0.1:9082",
   "metrics_file": "/var/lib/h3ntun/metrics.json",
   "replay_state_file": "/var/lib/h3ntun/foreign-replay.json",
+  "replay_checkpoint_interval_seconds": 0.05,
+  "replay_checkpoint_batch_frames": 128,
   "keepalive_seconds": 5,
   "health_timeout_seconds": 20,
   "recv_buffer_bytes": 4194304,

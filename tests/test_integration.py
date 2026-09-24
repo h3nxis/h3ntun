@@ -4,6 +4,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from h3ntun.agent import ForeignAgent, IranAgent
 from h3ntun.config import ForeignConfig, IranConfig
@@ -56,6 +57,105 @@ class UdpEcho:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_replay_disk_stall_does_not_block_packet_forwarding(self) -> None:
+        inner_port, uplink_port, downlink_port = [free_udp_port() for _ in range(3)]
+        tunnel_id = bytes.fromhex("aa" * 16)
+        secret = b"v" * 32
+        with tempfile.TemporaryDirectory() as folder:
+            agent = IranAgent(IranConfig(
+                role="iran", tunnel_id=tunnel_id, shared_secret=secret,
+                health_listen=("127.0.0.1", 0),
+                metrics_file=str(Path(folder) / "metrics.json"),
+                keepalive_seconds=10, health_timeout_seconds=2, recv_buffer_bytes=65_536,
+                inner_listen=("127.0.0.1", inner_port), uplink_bind=("127.0.0.1", 0),
+                foreign_uplink=("127.0.0.1", uplink_port),
+                downlink_listen=("127.0.0.1", downlink_port),
+                expected_downlink_source="127.0.0.1",
+                replay_state_file=str(Path(folder) / "replay.json"),
+                replay_checkpoint_batch_frames=1,
+            ))
+            entered = threading.Event()
+            release = threading.Event()
+            real_write = agent.replay._write_snapshot
+
+            def stalled_write(state):
+                entered.set()
+                if not release.wait(3):
+                    raise OSError("simulated disk stall")
+                real_write(state)
+
+            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            client.bind(("127.0.0.1", 0))
+            client.settimeout(2)
+            codec = FrameCodec(tunnel_id, secret)
+            try:
+                with patch.object(agent.replay, "_write_snapshot", side_effect=stalled_write):
+                    agent.start()
+                    client.sendto(b"register", ("127.0.0.1", inner_port))
+                    self.assertTrue(wait_for(
+                        lambda: agent.metrics.snapshot()["inner_rx_packets"] == 1
+                    ))
+                    sender.sendto(
+                        codec.encode(DATA_DOWN, 1, b"first", message_id=1),
+                        ("127.0.0.1", downlink_port),
+                    )
+                    self.assertTrue(entered.wait(1))
+                    for sequence in range(2, 32):
+                        sender.sendto(
+                            codec.encode(DATA_DOWN, sequence, b"x" + bytes([sequence]),
+                                         message_id=sequence),
+                            ("127.0.0.1", downlink_port),
+                        )
+                    received = [client.recvfrom(65_535)[0] for _ in range(31)]
+                    self.assertEqual(received[0], b"first")
+                    self.assertEqual(len(received), 31)
+                    self.assertTrue(wait_for(
+                        lambda: agent.metrics.snapshot()["inner_tx_packets"] == 31
+                    ))
+                    self.assertLessEqual(agent.replay.stats()["replay_checkpoint_queue_depth"], 1)
+            finally:
+                release.set()
+                sender.close()
+                client.close()
+                agent.stop()
+
+    def test_agent_exposes_replay_checkpoint_metrics(self) -> None:
+        inner_port, uplink_port, downlink_port = [free_udp_port() for _ in range(3)]
+        tunnel_id = bytes.fromhex("99" * 16)
+        secret = b"p" * 32
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = Path(folder) / "replay.json"
+            agent = IranAgent(IranConfig(
+                role="iran", tunnel_id=tunnel_id, shared_secret=secret,
+                health_listen=("127.0.0.1", 0),
+                metrics_file=str(Path(folder) / "metrics.json"),
+                keepalive_seconds=10, health_timeout_seconds=2, recv_buffer_bytes=65_536,
+                inner_listen=("127.0.0.1", inner_port), uplink_bind=("127.0.0.1", 0),
+                foreign_uplink=("127.0.0.1", uplink_port),
+                downlink_listen=("127.0.0.1", downlink_port),
+                expected_downlink_source="127.0.0.1",
+                replay_state_file=str(state_path),
+                replay_checkpoint_interval_seconds=0.02,
+                replay_checkpoint_batch_frames=1,
+            ))
+            sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                agent.start()
+                packet = FrameCodec(tunnel_id, secret).encode(DATA_DOWN, 1, b"checkpoint")
+                sender.sendto(packet, ("127.0.0.1", downlink_port))
+                self.assertTrue(wait_for(
+                    lambda: agent.metrics.snapshot()["replay_checkpoints"] >= 1
+                ))
+                metrics = agent.metrics.snapshot()
+                self.assertEqual(metrics["replay_checkpoint_lag_frames"], 0)
+                self.assertIsNotNone(metrics["replay_write_latency_ms"])
+                self.assertEqual(metrics["replay_persistence_errors"], 0)
+            finally:
+                sender.close()
+                agent.stop()
+            self.assertTrue(state_path.exists())
+
     def test_bidirectional_authenticated_datagram(self) -> None:
         ports = [free_udp_port() for _ in range(5)]
         inner_port, uplink_port, downlink_port, bridge_port, echo_port = ports

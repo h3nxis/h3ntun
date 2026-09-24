@@ -87,6 +87,8 @@ class CommonConfig:
     max_retries: int = 8
     max_pending_messages: int = 2048
     reassembly_timeout_seconds: float = 30.0
+    replay_checkpoint_interval_seconds: float = 0.05
+    replay_checkpoint_batch_frames: int = 128
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -161,6 +163,8 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
         max_retries=int(raw.get("max_retries", 8)),
         max_pending_messages=int(raw.get("max_pending_messages", 2048)),
         reassembly_timeout_seconds=float(raw.get("reassembly_timeout_seconds", 30.0)),
+        replay_checkpoint_interval_seconds=float(raw.get("replay_checkpoint_interval_seconds", 0.05)),
+        replay_checkpoint_batch_frames=int(raw.get("replay_checkpoint_batch_frames", 128)),
     )
     if (
         not math.isfinite(common["keepalive_seconds"])
@@ -169,8 +173,10 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
         or common["health_timeout_seconds"] <= 0
         or not math.isfinite(common["retransmit_timeout_seconds"])
         or not math.isfinite(common["reassembly_timeout_seconds"])
+        or not math.isfinite(common["replay_checkpoint_interval_seconds"])
         or common["retransmit_timeout_seconds"] <= 0
         or common["reassembly_timeout_seconds"] <= 0
+        or common["replay_checkpoint_interval_seconds"] <= 0
     ):
         raise ConfigError("all timeout values must be finite and positive")
     if common["recv_buffer_bytes"] < 65_536:
@@ -181,6 +187,8 @@ def load_config(path: str | Path) -> IranConfig | ForeignConfig:
         raise ConfigError("max_retries must be between 0 and 100")
     if not 1 <= common["max_pending_messages"] <= 100_000:
         raise ConfigError("max_pending_messages must be between 1 and 100000")
+    if not 1 <= common["replay_checkpoint_batch_frames"] <= 100_000:
+        raise ConfigError("replay_checkpoint_batch_frames must be between 1 and 100000")
 
     if role == "iran":
         expected = raw.get("expected_downlink_source")

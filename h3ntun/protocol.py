@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import secrets
 import struct
@@ -10,7 +11,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
@@ -283,41 +284,47 @@ class ReplayWindow:
         self.bitmap = 0
         return True
 
+    def _accept_locked(self, sequence: int, session_id: int) -> bool:
+        if sequence < 0 or not self._select_session(session_id):
+            return False
+        if self.highest < 0:
+            self.highest = sequence
+            self.bitmap = 1
+            return True
+        if sequence > self.highest:
+            shift = sequence - self.highest
+            self.bitmap = (
+                1
+                if shift >= self.size
+                else ((self.bitmap << shift) | 1) & ((1 << self.size) - 1)
+            )
+            self.highest = sequence
+            return True
+        distance = self.highest - sequence
+        if distance >= self.size:
+            return False
+        mask = 1 << distance
+        if self.bitmap & mask:
+            return False
+        self.bitmap |= mask
+        return True
+
     def accept(self, sequence: int, session_id: int = 0) -> bool:
         with self._lock:
-            if sequence < 0 or not self._select_session(session_id):
-                return False
-            if self.highest < 0:
-                self.highest = sequence
-                self.bitmap = 1
-                return True
-            if sequence > self.highest:
-                shift = sequence - self.highest
-                self.bitmap = (
-                    1
-                    if shift >= self.size
-                    else ((self.bitmap << shift) | 1) & ((1 << self.size) - 1)
-                )
-                self.highest = sequence
-                return True
-            distance = self.highest - sequence
-            if distance >= self.size:
-                return False
-            mask = 1 << distance
-            if self.bitmap & mask:
-                return False
-            self.bitmap |= mask
-            return True
+            return self._accept_locked(sequence, session_id)
+
+    def _snapshot_locked(self) -> dict[str, Any]:
+        return {
+            "size": self.size,
+            "session_id": self.session_id,
+            "retired_sessions": sorted(self.retired_sessions),
+            "highest": self.highest,
+            "bitmap": format(self.bitmap, "x"),
+        }
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
-            return {
-                "size": self.size,
-                "session_id": self.session_id,
-                "retired_sessions": sorted(self.retired_sessions),
-                "highest": self.highest,
-                "bitmap": format(self.bitmap, "x"),
-            }
+            return self._snapshot_locked()
 
     def restore(self, state: dict[str, Any]) -> None:
         try:
@@ -342,14 +349,52 @@ class ReplayWindow:
 
 
 class PersistentReplayWindow(ReplayWindow):
-    """Replay window persisted atomically before an accepted frame is used."""
+    """In-memory replay check with one coalesced, asynchronous disk checkpoint.
 
-    def __init__(self, path: str | Path, tunnel_id: bytes, size: int = 4096):
+    A hard crash can replay frames accepted after the last durable checkpoint.
+    Clean shutdown waits for the latest checkpoint, subject to its timeout.
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        tunnel_id: bytes,
+        size: int = 4096,
+        *,
+        interval_seconds: float = 0.05,
+        batch_frames: int = 128,
+        on_checkpoint: Callable[[dict[str, Any]], None] | None = None,
+    ):
         super().__init__(size)
+        if not math.isfinite(interval_seconds) or interval_seconds <= 0 or batch_frames < 1:
+            raise ValueError("checkpoint interval and batch size must be positive")
         self.path = Path(path)
         self.fingerprint = hashlib.sha256(tunnel_id).hexdigest()
+        self.interval_seconds = interval_seconds
+        self.batch_frames = batch_frames
+        self._on_checkpoint = on_checkpoint
+        self._condition = threading.Condition(self._lock)
+        self._pending: tuple[int, dict[str, Any], float] | None = None
+        self._inflight_since: float | None = None
+        self._accepted_count = 0
+        self._persisted_count = 0
+        self._pending_frames = 0
+        self._coalesced = 0
+        self._checkpoints = 0
+        self._errors = 0
+        self._last_error: str | None = None
+        self._last_write_latency_ms: float | None = None
+        self._stopping = False
+        self._last_attempt_at = time.monotonic()
+        self._retry_at = 0.0
         if self.path.exists():
             self._load()
+        self._writer = threading.Thread(
+            target=self._writer_loop,
+            name="replay-checkpoint-writer",
+            daemon=True,
+        )
+        self._writer.start()
 
     def _load(self) -> None:
         try:
@@ -360,21 +405,30 @@ class PersistentReplayWindow(ReplayWindow):
             raise ProtocolError("replay state belongs to a different tunnel or format")
         self.restore(envelope.get("window", {}))
 
-    def _persist(self) -> None:
+    def _write_snapshot(self, state: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         envelope = {
             "format": 1,
             "tunnel": self.fingerprint,
-            "window": self.snapshot(),
+            "window": state,
         }
         fd, temp_name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                os.chmod(temp_name, 0o600)
                 json.dump(envelope, handle, separators=(",", ":"))
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.chmod(temp_name, 0o600)
             os.replace(temp_name, self.path)
+            if os.name == "posix":
+                directory_fd = os.open(
+                    self.path.parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         finally:
             try:
                 os.unlink(temp_name)
@@ -382,7 +436,113 @@ class PersistentReplayWindow(ReplayWindow):
                 pass
 
     def accept(self, sequence: int, session_id: int = 0) -> bool:
-        accepted = super().accept(sequence, session_id)
-        if accepted:
-            self._persist()
-        return accepted
+        with self._condition:
+            if self._stopping:
+                raise ProtocolError("replay checkpoint writer is closing")
+            if not self._accept_locked(sequence, session_id):
+                return False
+            self._accepted_count += 1
+            self._pending_frames += 1
+            queued_at = time.monotonic()
+            was_empty = self._pending is None
+            if self._pending is not None:
+                self._coalesced += 1
+                queued_at = self._pending[2]
+            self._pending = (self._accepted_count, self._snapshot_locked(), queued_at)
+            if was_empty or self._pending_frames >= self.batch_frames:
+                self._condition.notify()
+            return True
+
+    def stats(self) -> dict[str, Any]:
+        with self._condition:
+            outstanding = [
+                queued_at for queued_at in (
+                    self._pending[2] if self._pending is not None else None,
+                    self._inflight_since,
+                ) if queued_at is not None
+            ]
+            lag_ms = (
+                round((time.monotonic() - min(outstanding)) * 1000, 3)
+                if outstanding
+                else 0.0
+            )
+            return {
+                "replay_checkpoint_queue_depth": int(self._pending is not None),
+                "replay_checkpoint_inflight": int(self._inflight_since is not None),
+                "replay_checkpoint_lag_frames": self._accepted_count - self._persisted_count,
+                "replay_checkpoint_lag_ms": lag_ms,
+                "replay_write_latency_ms": self._last_write_latency_ms,
+                "replay_persistence_errors": self._errors,
+                "replay_checkpoints": self._checkpoints,
+                "replay_snapshots_coalesced": self._coalesced,
+                "replay_persistence_last_error": self._last_error,
+            }
+
+    def _publish_stats(self) -> None:
+        if self._on_checkpoint is not None:
+            self._on_checkpoint(self.stats())
+
+    def _writer_loop(self) -> None:
+        while True:
+            with self._condition:
+                while True:
+                    now = time.monotonic()
+                    if self._stopping and self._pending is None:
+                        return
+                    ready = (
+                        self._pending is not None
+                        and now >= self._retry_at
+                        and (
+                            self._stopping
+                            or self._pending_frames >= self.batch_frames
+                            or now - self._last_attempt_at >= self.interval_seconds
+                        )
+                    )
+                    if ready:
+                        generation, state, queued_at = self._pending
+                        self._pending = None
+                        self._pending_frames = 0
+                        self._inflight_since = queued_at
+                        self._last_attempt_at = now
+                        break
+                    if self._pending is None:
+                        self._condition.wait()
+                    else:
+                        due_at = (
+                            now if self._stopping or self._pending_frames >= self.batch_frames
+                            else self._last_attempt_at + self.interval_seconds
+                        )
+                        wait_until = max(self._retry_at, due_at)
+                        self._condition.wait(timeout=max(0.001, wait_until - now))
+
+            started = time.monotonic()
+            try:
+                self._write_snapshot(state)
+            except OSError as exc:
+                with self._condition:
+                    self._inflight_since = None
+                    self._errors += 1
+                    self._last_error = str(exc)
+                    if self._pending is None:
+                        self._pending = (generation, state, queued_at)
+                    else:
+                        newer_generation, newer_state, newer_at = self._pending
+                        self._pending = (newer_generation, newer_state, min(queued_at, newer_at))
+                    self._retry_at = time.monotonic() + self.interval_seconds
+                    self._condition.notify_all()
+            else:
+                with self._condition:
+                    self._inflight_since = None
+                    self._persisted_count = generation
+                    self._checkpoints += 1
+                    self._last_error = None
+                    self._last_write_latency_ms = round((time.monotonic() - started) * 1000, 3)
+                    self._condition.notify_all()
+            self._publish_stats()
+
+    def close(self, timeout: float = 5.0) -> bool:
+        with self._condition:
+            self._stopping = True
+            self._condition.notify_all()
+        self._writer.join(timeout=timeout)
+        return not self._writer.is_alive() and self.stats()["replay_checkpoint_lag_frames"] == 0

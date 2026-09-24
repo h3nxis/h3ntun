@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Move replay checkpoint disk writes to an independent writer thread with a
+  one-slot coalescing queue and 50 ms / 128-frame group commits.
+- Fsync the checkpoint directory after atomic replacement on POSIX.
+- Expose replay write latency, checkpoint lag, queue depth, coalescing, and
+  persistence errors in metrics.
+- Document the hard-crash replay window introduced by asynchronous checkpoints.
+
 ## 0.4.0 — 2026-09-24
 
 ### Added
